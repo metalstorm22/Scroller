@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Scroller — Keyframe Page Scrolls",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Create and replay smooth, timed scroll sequences for polished website recordings.",
   "icons": {
     "16": "icons/icon-16.png",

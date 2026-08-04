@@ -18,11 +18,29 @@ Chrome prevents extensions from running on protected browser pages such as `chro
 1. Choose a desktop, laptop, tablet, or mobile viewport under **Recording setup**, then select **Resize**.
 2. Optionally enable a 16:9, 4:5, 9:16, or 1:1 safe crop guide while composing the page.
 3. Scroll to the first desired section and choose **Add current position**. Repeat for the remaining sections.
-4. Apply a pacing preset or adjust each frame's travel time, hold time, and easing manually.
+4. Apply a pacing preset, or retime directly on the timeline (see below).
 5. Drag frames by their six-dot handles to reorder them. Use the `•••` menu to update, duplicate, or delete a frame; deletion can be undone.
-6. Scrub the timeline to preview intermediate scroll positions.
+6. Scrub the ruler above the timeline to preview intermediate scroll positions.
 7. Start the screen recorder and choose **Reload & play**. Scroller reloads the page so its intro animation is captured, stays invisible, waits through the countdown, and then runs the sequence.
 8. Use **Preview** when a page reload is unnecessary. Press `Esc` to stop a loop and restore the panel.
+
+## Panel size
+
+Drag the panel by its header to move it, or drag any edge or corner to resize it. The size is saved per page alongside the timeline, so the panel comes back the way you left it. The top-left corner shows a grip when you hover the panel; the other seven edges respond to the same drag without a visible marker.
+
+The keyframe list absorbs whatever height you give the panel, so making it taller shows more keyframes rather than padding the layout.
+
+## Editing the timeline
+
+The timeline is a proportional track, not just a progress bar. Each keyframe is one clip made of two parts: a solid **travel** block and a hatched **hold** block, sized to their share of the total duration.
+
+- Drag the edge between travel and hold to retime when the keyframe arrives.
+- Drag the right edge of a hold block to change how long the sequence rests there.
+- Hold `Shift` while dragging for 10 ms precision instead of the default 50 ms steps.
+- Click any clip to select that keyframe.
+- Drag the thin ruler above the clips to scrub; the page follows the playhead.
+
+Values snap and clamp between 0 and 60 seconds, and the readout in the timeline header shows the live value while you drag. The Travel and Hold fields in the inspector stay in sync for typing exact numbers.
 
 ## Editing a keyframe
 

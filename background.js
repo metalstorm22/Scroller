@@ -1,4 +1,5 @@
 const PENDING_RELOAD_PREFIX = "scroller-pending-reload:";
+const toolbarAction = chrome.action ?? chrome.browserAction;
 
 async function injectScroller(tabId, { reloadAutoplay = false } = {}) {
   if (reloadAutoplay) {
@@ -25,25 +26,30 @@ async function sendScrollerCommand(tabId, command) {
 
 async function showActionError(tabId, error) {
   console.warn("Scroller cannot run on this page.", error);
-  await chrome.action.setBadgeBackgroundColor({ tabId, color: "#ff6658" });
-  await chrome.action.setBadgeText({ tabId, text: "!" });
+  if (!toolbarAction) return;
+  await toolbarAction.setBadgeBackgroundColor({ tabId, color: "#ff6658" });
+  await toolbarAction.setBadgeText({ tabId, text: "!" });
 }
 
-chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab.id) return;
-  try {
-    await injectScroller(tab.id);
-    await chrome.action.setBadgeText({ tabId: tab.id, text: "" });
-  } catch (error) {
-    await showActionError(tab.id, error);
-  }
-});
+if (toolbarAction?.onClicked) {
+  toolbarAction.onClicked.addListener(async (tab) => {
+    if (!tab.id) return;
+    try {
+      await injectScroller(tab.id);
+      await toolbarAction.setBadgeText({ tabId: tab.id, text: "" });
+    } catch (error) {
+      await showActionError(tab.id, error);
+    }
+  });
+} else {
+  console.warn("Scroller could not register its toolbar button in this browser.");
+}
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
   if (!tab?.id || !["add-keyframe", "play-sequence"].includes(command)) return;
   try {
     await sendScrollerCommand(tab.id, command);
-    await chrome.action.setBadgeText({ tabId: tab.id, text: "" });
+    await toolbarAction?.setBadgeText({ tabId: tab.id, text: "" });
   } catch (error) {
     await showActionError(tab.id, error);
   }
