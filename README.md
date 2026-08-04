@@ -1,67 +1,60 @@
 # Scroller
 
-Scroller is a small Chrome extension for designing repeatable, cinematic webpage scrolls. Capture positions on any live page, assign travel and hold timing, choose an easing curve, then play the sequence once or on a loop while screen recording.
+Design smooth, repeatable webpage scrolls for product demos, walkthroughs, and social videos—directly on the page you want to record.
 
-The extension icon uses a three-node eased path to represent scroll keyframes and motion timing.
+Scroller is a lightweight Chrome extension that captures scroll positions as keyframes. Set the travel and hold time for each frame, choose an easing curve, and preview or loop the resulting sequence while recording your screen.
 
-## Install the prototype
+![Scroller editing a three-keyframe product demo](store-assets/screenshots/scroller-store-1280x800.png)
 
-1. Open `chrome://extensions` in Chrome.
-2. Turn on **Developer mode**.
-3. Choose **Load unpacked** and select this folder.
-4. Open a normal website and click the Scroller toolbar icon.
+## Features
 
-Chrome prevents extensions from running on protected browser pages such as `chrome://extensions` and the Chrome Web Store.
+- Capture, rename, reorder, duplicate, update, and delete scroll keyframes.
+- Edit travel and hold timing on a proportional timeline.
+- Choose cinematic, editorial, product, or quick pacing presets.
+- Scrub the timeline to preview intermediate positions.
+- Resize the browser to common desktop, laptop, tablet, and mobile viewports.
+- Compose for 16:9, 4:5, 9:16, or 1:1 with optional safe-area guides.
+- Reload the current page and automatically resume playback for cleaner recordings.
+- Move and resize the in-page control panel; layouts are remembered per page.
+- Keep every sequence on your device. Scroller has no account, analytics, or server.
+
+## Install
+
+### Chrome Web Store
+
+The public store link will be added here after the first listing is approved.
+
+### Install from source
+
+1. Download or clone this repository.
+2. Open `chrome://extensions` in Chrome.
+3. Enable **Developer mode**.
+4. Select **Load unpacked** and choose the repository folder.
+5. Open a normal website and select the Scroller toolbar icon.
+
+Chrome does not allow extensions to run on protected pages such as `chrome://extensions`, the Chrome Web Store, or some browser-owned tabs.
 
 ## Recording workflow
 
-1. Choose a desktop, laptop, tablet, or mobile viewport under **Recording setup**, then select **Resize**.
-2. Optionally enable a 16:9, 4:5, 9:16, or 1:1 safe crop guide while composing the page.
-3. Scroll to the first desired section and choose **Add current position**. Repeat for the remaining sections.
-4. Apply a pacing preset, or retime directly on the timeline (see below).
-5. Drag frames by their six-dot handles to reorder them. Use the `•••` menu to update, duplicate, or delete a frame; deletion can be undone.
-6. Scrub the ruler above the timeline to preview intermediate scroll positions.
-7. Start the screen recorder and choose **Reload & play**. Scroller reloads the page so its intro animation is captured, stays invisible, waits through the countdown, and then runs the sequence.
-8. Use **Preview** when a page reload is unnecessary. Press `Esc` to stop a loop and restore the panel.
+1. In **Setup**, choose a viewport and select **Resize**. Optionally enable a safe crop guide.
+2. Scroll to the first section and select **Add current position**. Repeat for the remaining sections.
+3. Apply a pacing preset or edit each frame on the timeline and in the inspector.
+4. Drag frames by their handles to reorder them. Use the `•••` menu to update, duplicate, or delete a frame.
+5. Scrub the timeline ruler to preview the motion.
+6. Start your screen recorder, then select **Reload & play** to include the page load animation without showing Scroller.
+7. Use **Preview** when a reload is unnecessary. Press `Esc` to stop playback.
 
-## Panel size
+## Timeline editing
 
-Drag the panel by its header to move it, or drag any edge or corner to resize it. The size is saved per page alongside the timeline, so the panel comes back the way you left it. The top-left corner shows a grip when you hover the panel; the other seven edges respond to the same drag without a visible marker.
+Each keyframe is a clip with two parts: a solid **travel** block and a hatched **hold** block, sized in proportion to the full sequence.
 
-The keyframe list absorbs whatever height you give the panel, so making it taller shows more keyframes rather than padding the layout.
+- Drag the boundary between travel and hold to change the arrival time.
+- Drag the right edge of the hold block to change the pause.
+- Hold `Shift` while dragging for 10 ms precision instead of 50 ms steps.
+- Select any clip to open its keyframe inspector.
+- Drag the ruler above the clips to scrub the page.
 
-## Editing the timeline
-
-The timeline is a proportional track, not just a progress bar. Each keyframe is one clip made of two parts: a solid **travel** block and a hatched **hold** block, sized to their share of the total duration.
-
-- Drag the edge between travel and hold to retime when the keyframe arrives.
-- Drag the right edge of a hold block to change how long the sequence rests there.
-- Hold `Shift` while dragging for 10 ms precision instead of the default 50 ms steps.
-- Click any clip to select that keyframe.
-- Drag the thin ruler above the clips to scrub; the page follows the playhead.
-
-Values snap and clamp between 0 and 60 seconds, and the readout in the timeline header shows the live value while you drag. The Travel and Hold fields in the inspector stay in sync for typing exact numbers.
-
-## Editing a keyframe
-
-The default **Frames** view keeps the timeline and keyframe list compact. Select any keyframe to open its inspector:
-
-- Drag the **Position** slider or type an exact percentage to update the keyframe and seek the page immediately.
-- Choose **Go to position** to preview its saved location.
-- Scroll the page manually and choose **Use current scroll** to replace the saved position.
-- Edit the keyframe name, travel time, hold time, and easing from the same inspector.
-
-Recording controls now live in the separate **Setup** view, so they do not add scrolling to the frame editor.
-
-## Sequence controls
-
-Use the **Sequence** menu in the header to:
-
-- Start a new sequence and restore the default recording setup.
-- Reset only the recording setup while keeping keyframes.
-- Clear all keyframes while preserving the setup.
-
-Destructive actions require confirmation and can be undone immediately.
+Timing values are clamped between 0 and 60 seconds. The inspector fields remain available when exact values are easier.
 
 ## Keyboard shortcuts
 
@@ -69,22 +62,37 @@ Destructive actions require confirmation and can be undone immediately.
 - `Alt` + `Shift` + `P`: play or stop the sequence.
 - `Esc`: stop playback.
 
-Shortcuts can be remapped from `chrome://extensions/shortcuts` if they conflict with another extension or operating-system shortcut.
+Chrome shortcuts can be changed at `chrome://extensions/shortcuts`.
 
-Timelines are stored locally per origin and pathname. No page data leaves the browser.
+## Privacy and permissions
 
-## MVP product decisions
+Scroller stores the current page origin and path, your keyframes, and interface preferences locally in Chrome so each page can restore its own sequence. Nothing is transmitted to the developer or a third party, and Scroller does not read page content. See the full [Privacy Policy](PRIVACY.md).
 
-- **In-page panel instead of a popup:** Chrome popups close as soon as the page is clicked or scrolled.
-- **Relative positions:** keyframes are stored as page progress, so they remain useful when small layout shifts change the document height.
-- **Custom animation loop:** playback uses `requestAnimationFrame` rather than native smooth scrolling, allowing predictable duration and easing.
-- **Reload resume:** a short-lived session marker lets playback resume automatically after reloading without requesting access to every website.
-- **Viewport presets:** the browser window is resized with compensation for Chrome's frame, keeping the requested content viewport accurate.
-- **System screen recorder first:** direct tab recording and video export add media permissions and editing complexity that are better evaluated after the scrolling workflow is proven.
+The extension requests only the permissions needed for its visible features:
 
-## Sensible next steps
+- `activeTab`: work on the page only after you select Scroller or use its shortcut.
+- `scripting`: inject the in-page keyframe editor into that active tab.
+- `storage`: save timelines locally and carry a short-lived flag across **Reload & play**.
 
-- Element-anchored frames for pages whose height changes substantially after load.
-- Editable cubic-bezier curves and timeline timestamps.
-- Import/export of timelines for collaborators.
-- Optional tab capture and WebM export once the core workflow feels right.
+Scroller does not request access to every website and does not run persistently on pages.
+
+## Development
+
+Scroller is a dependency-free Manifest V3 extension. The runtime is intentionally small:
+
+- `manifest.json` defines the extension, permissions, icons, and shortcuts.
+- `background.js` handles toolbar actions, commands, viewport resizing, and reload playback.
+- `content.js` contains the Shadow DOM interface, timeline state, and animation engine.
+- `icons/` contains the packaged extension icons.
+
+Validate and package a release with:
+
+```sh
+./scripts/package-extension.sh
+```
+
+The script validates the manifest and JavaScript, reads the release version from the manifest, and writes an upload-ready ZIP to `dist/`.
+
+## Support
+
+Found a bug or have an idea? [Open a GitHub issue](https://github.com/metalstorm22/Scroller/issues).
