@@ -34,7 +34,7 @@ Highlights:
 
 - Capture and reorder scroll keyframes
 - Edit travel and hold timing on a visual timeline
-- Preview, scrub, loop, or reload and play a sequence
+- Scrub, loop, and play a sequence, with an optional page reload before it starts
 - Resize to desktop, laptop, tablet, and mobile viewports
 - Show safe crop guides for common video aspect ratios
 - Save separate timelines for each page

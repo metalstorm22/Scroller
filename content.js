@@ -22,6 +22,7 @@
     loop: true,
     countdown: 3,
     hideWhilePlaying: true,
+    reloadBeforeStart: false,
     pacingPreset: "custom",
     viewportPreset: "desktop",
     guidePreset: "none",
@@ -30,13 +31,13 @@
   let state = { ...DEFAULT_STATE };
   let selectedId = null;
   let isPlaying = false;
+  let isArming = false;
+  let autoplayHandled = false;
   let playbackToken = 0;
   let status = "Ready";
   let saveTimer = null;
-  let dragId = null;
   let minimized = false;
   let panelPosition = null;
-  let menuFrameId = null;
   let undoAction = null;
   let sequenceMenuOpen = false;
   let confirmAction = null;
@@ -286,6 +287,9 @@
       border-radius: var(--sc-r-sm);
     }
     .icon-button:hover { color: var(--sc-text); background: rgba(255, 255, 255, 0.08); }
+    .danger-icon:hover { color: var(--sc-danger); background: rgba(255, 122, 107, 0.13); }
+    .inspector-header .icon-button { width: 24px; height: 24px; flex: 0 0 auto; }
+    .inspector-header .icon-button svg { width: 13px; height: 13px; }
     .icon-button:active { background: rgba(255, 255, 255, 0.12); }
     .icon-button svg { width: 15px; height: 15px; }
 
@@ -309,7 +313,6 @@
 
     /* ---------- popovers ---------- */
 
-    .frame-menu,
     .sequence-menu {
       position: absolute;
       z-index: 8;
@@ -326,8 +329,6 @@
       animation: sc-pop 130ms var(--sc-ease);
     }
     .sequence-menu { top: 40px; right: 66px; width: 190px; }
-    .frame-menu { top: 38px; right: 4px; width: 156px; }
-    .frame-menu button,
     .sequence-menu button {
       width: 100%;
       min-height: 30px;
@@ -344,13 +345,9 @@
       cursor: pointer;
       transition: background 110ms var(--sc-ease), color 110ms var(--sc-ease);
     }
-    .frame-menu button:hover,
     .sequence-menu button:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
-    .frame-menu button.danger,
     .sequence-menu button.danger { color: var(--sc-danger); }
-    .frame-menu button.danger:hover,
     .sequence-menu button.danger:hover { background: rgba(255, 122, 107, 0.13); }
-    .frame-menu svg,
     .sequence-menu svg { width: 13px; height: 13px; flex: 0 0 auto; opacity: 0.75; }
 
     /* ---------- segmented view switch ---------- */
@@ -512,7 +509,7 @@
     .timeline-lane {
       display: flex;
       gap: 2px;
-      height: 38px;
+      height: 46px;
       padding: 3px;
       border: 1px solid var(--sc-line);
       border-radius: 0 0 var(--sc-r-md) var(--sc-r-md);
@@ -533,8 +530,19 @@
       flex: 0 1 0;
       min-width: 12px;
       border-radius: var(--sc-r-sm);
-      cursor: pointer;
+      cursor: grab;
+      transition: transform 140ms var(--sc-ease), opacity 140ms var(--sc-ease);
     }
+    /* Reordering suspends the width transition so clips snap to their new slot
+       under the cursor instead of lagging behind it. */
+    .timeline-lane.reordering .clip { transition: none; }
+    .clip.dragging {
+      z-index: 4;
+      cursor: grabbing;
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 0 0 1.5px var(--sc-accent), 0 6px 16px rgba(0, 0, 0, 0.55);
+    }
+    .clip.dragging .clip-handle { opacity: 0; }
     .clip-travel,
     .clip-hold {
       position: relative;
@@ -632,178 +640,23 @@
       border-top: 5px solid var(--sc-accent);
     }
 
-    /* ---------- section labels ---------- */
+    /* ---------- body layout ---------- */
 
-    .section-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 13px 7px;
-      color: var(--sc-faint);
-      font-size: 9.5px;
-      font-weight: 620;
-      text-transform: uppercase;
-      letter-spacing: 0.09em;
-    }
-    .section-label .count {
-      padding: 1px 5px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.07);
-      color: var(--sc-muted);
-      font-family: var(--sc-mono);
-      font-size: 9px;
-      letter-spacing: 0;
-    }
-    .section-label::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: var(--sc-line);
-    }
-
-    /* ---------- keyframe rows ---------- */
-
-    /* Fixed blocks; only the keyframe list absorbs height when the panel is resized. */
+    /* Fixed blocks; the inspector absorbs height when the panel is resized. */
     .timeline-section,
-    .section-label,
-    .compact-add,
+    .timeline-add { flex: 0 0 auto; }
     .inspector,
-    .inspector-empty { flex: 0 0 auto; }
-    .setup-view { flex: 1 1 auto; overflow-y: auto; }
-
-    .compact-frames {
+    .inspector-empty {
       flex: 1 1 auto;
-      min-height: 108px;
-      padding: 0 8px 2px;
       overflow-y: auto;
       scrollbar-width: thin;
       scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
     }
-    .compact-frame {
-      position: relative;
-      min-height: 40px;
-      display: grid;
-      grid-template-columns: 16px 20px minmax(70px, 1fr) 50px 46px 26px;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 4px;
-      border: 1px solid transparent;
-      border-radius: 9px;
-      cursor: pointer;
-      transition: background 120ms var(--sc-ease), border-color 120ms var(--sc-ease);
-    }
-    .compact-frame + .compact-frame { margin-top: 1px; }
-    .compact-frame:hover { background: rgba(255, 255, 255, 0.04); }
-    .compact-frame.selected {
-      border-color: var(--sc-accent-line);
-      background: var(--sc-accent-dim);
-    }
-    .compact-frame.dragging { opacity: 0.4; }
-
-    .drag-handle {
-      width: 16px;
-      height: 26px;
-      display: grid;
-      place-items: center;
-      color: #4e5459;
-      cursor: grab;
-      border-radius: 4px;
-      transition: color 120ms var(--sc-ease);
-    }
-    .compact-frame:hover .drag-handle { color: #7e858b; }
-    .drag-handle:hover { color: #c2c7cb; }
-    .drag-handle:active { cursor: grabbing; }
-    .drag-handle svg { width: 10px; height: 16px; }
-
-    .frame-index {
-      width: 20px;
-      height: 20px;
-      display: grid;
-      place-items: center;
-      border-radius: var(--sc-r-sm);
-      border: 1px solid var(--sc-line);
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--sc-muted);
-      font-family: var(--sc-mono);
-      font-size: 10px;
-      font-variant-numeric: tabular-nums;
-    }
-    .compact-frame.selected .frame-index {
-      border-color: var(--sc-accent-line);
-      background: rgba(255, 106, 85, 0.16);
-      color: var(--sc-accent);
-    }
-
-    .compact-name { min-width: 0; padding: 0 2px; }
-    .compact-name strong {
-      display: block;
-      overflow: hidden;
-      color: var(--sc-text);
-      font-size: 12px;
-      font-weight: 560;
-      letter-spacing: -0.01em;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .compact-name small {
-      display: block;
-      margin-top: 1px;
-      color: var(--sc-faint);
-      font-family: var(--sc-mono);
-      font-size: 9px;
-      letter-spacing: -0.01em;
-    }
-    .compact-position {
-      height: 24px;
-      padding: 0 5px;
-      border: 1px solid transparent;
-      border-radius: var(--sc-r-sm);
-      color: #d3d7db;
-      background: rgba(255, 255, 255, 0.04);
-      font-family: var(--sc-mono);
-      font-size: 11px;
-      font-variant-numeric: tabular-nums;
-      cursor: pointer;
-      transition: color 120ms var(--sc-ease), background 120ms var(--sc-ease), border-color 120ms var(--sc-ease);
-    }
-    .compact-position:hover {
-      border-color: var(--sc-accent-line);
-      color: var(--sc-accent);
-      background: rgba(255, 106, 85, 0.12);
-    }
-    .compact-duration {
-      color: var(--sc-faint);
-      font-family: var(--sc-mono);
-      font-size: 10px;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-    .menu-button { opacity: 0; }
-    .compact-frame:hover .menu-button,
-    .compact-frame.selected .menu-button { opacity: 1; }
-    .menu-button:hover { color: var(--sc-text); }
-
-    .empty {
-      margin: 2px 4px 6px;
-      padding: 26px 22px;
-      border: 1px dashed var(--sc-line-strong);
-      border-radius: 10px;
-      color: var(--sc-muted);
-      text-align: center;
-      font-size: 11.5px;
-      line-height: 1.5;
-    }
-    .empty strong {
-      display: block;
-      margin-bottom: 4px;
-      color: var(--sc-text);
-      font-size: 12.5px;
-      font-weight: 600;
-    }
+    .setup-view { flex: 1 1 auto; overflow-y: auto; }
 
     /* ---------- add button ---------- */
 
-    .compact-add { padding: 8px 12px 12px; }
+    .timeline-add { padding: 8px 12px 12px; }
     .add-button {
       width: 100%;
       height: 34px;
@@ -1018,7 +871,15 @@
       border-radius: var(--sc-r-lg);
       color: var(--sc-faint);
       font-size: 11px;
+      line-height: 1.5;
       text-align: center;
+    }
+    .inspector-empty strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--sc-text);
+      font-size: 12.5px;
+      font-weight: 600;
     }
 
     /* ---------- setup view ---------- */
@@ -1172,6 +1033,35 @@
     }
 
     .controls { display: grid; grid-template-columns: 1fr 1.3fr; gap: 7px; }
+    .reload-toggle {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 38px;
+      padding: 0 10px;
+      border: 1px solid var(--sc-line-strong);
+      border-radius: var(--sc-r-md);
+      background: var(--sc-elev-2);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      color: #c9cdd1;
+      font-size: 11.5px;
+      font-weight: 560;
+      letter-spacing: -0.008em;
+      cursor: pointer;
+      transition: background 140ms var(--sc-ease), border-color 140ms var(--sc-ease), color 140ms var(--sc-ease);
+    }
+    .reload-toggle:hover { background: var(--sc-elev-3); border-color: rgba(255, 255, 255, 0.2); }
+    .reload-toggle svg { width: 14px; height: 14px; flex: 0 0 auto; color: var(--sc-faint); transition: color 140ms var(--sc-ease); }
+    .reload-toggle .toggle { margin-left: auto; width: 26px; height: 15px; }
+    .reload-toggle .toggle::after { width: 11px; height: 11px; }
+    .reload-toggle input:checked + .toggle::after { transform: translateX(11px); }
+    .reload-toggle:has(input:checked) {
+      border-color: var(--sc-accent-line);
+      background: var(--sc-accent-dim);
+      color: var(--sc-text);
+    }
+    .reload-toggle:has(input:checked) svg { color: var(--sc-accent); }
+    .reload-toggle:has(input:disabled) { cursor: not-allowed; opacity: 0.4; }
     .secondary,
     .primary {
       height: 38px;
@@ -1263,8 +1153,6 @@
 
     @media (max-width: 520px) {
       .panel { right: 12px; bottom: 12px; max-height: calc(100vh - 24px); }
-      .compact-frame { grid-template-columns: 14px 18px minmax(60px, 1fr) 46px 42px 24px; }
-      .compact-frames { min-height: 88px; }
       .position-actions { grid-template-columns: 1fr; }
       .timing-grid { grid-template-columns: 1fr 1fr; }
       .timing-field:last-child { grid-column: span 2; }
@@ -1272,7 +1160,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .panel, .frame-menu, .sequence-menu { animation: none; }
+      .panel, .sequence-menu { animation: none; }
       * { transition-duration: 1ms !important; }
     }
   `;
@@ -1286,8 +1174,6 @@
       stop: '<svg viewBox="0 0 20 20" fill="currentColor"><rect x="5" y="5" width="10" height="10" rx="1.5"/></svg>',
       plus: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 3.5v13M3.5 10h13"/></svg>',
       trash: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.55"><path d="M4.5 6h11M8 3.75h4M6 6l.6 10h6.8L14 6M8.3 8.5v5M11.7 8.5v5"/></svg>',
-      dots: '<svg viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.2"/><circle cx="9" cy="3" r="1.2"/><circle cx="3" cy="9" r="1.2"/><circle cx="9" cy="9" r="1.2"/><circle cx="3" cy="15" r="1.2"/><circle cx="9" cy="15" r="1.2"/></svg>',
-      more: '<svg viewBox="0 0 20 20" fill="currentColor"><circle cx="4.5" cy="10" r="1.3"/><circle cx="10" cy="10" r="1.3"/><circle cx="15.5" cy="10" r="1.3"/></svg>',
       locate: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="5.5"/><circle cx="10" cy="10" r="1.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2"/></svg>',
       update: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4.5 6.5A6.2 6.2 0 1 1 4 12"/><path d="M4.5 3.5v3h3"/></svg>',
       duplicate: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6.5" y="6.5" width="9" height="9" rx="1.5"/><path d="M13.5 6.5v-2h-9v9h2"/></svg>',
@@ -1334,7 +1220,7 @@
     const selected = frame.id === selectedId ? " selected" : "";
     return `
       <div class="clip${selected}" data-frame-id="${frame.id}" style="flex-grow:${Math.max(1, frame.travelMs + frame.holdMs)}">
-        <span class="clip-travel" style="flex-grow:${frame.travelMs}" title="${escapeHtml(frame.name)} · travel ${formatDuration(frame.travelMs)}, arrives at ${formatDuration(arrival)}">
+        <span class="clip-travel" style="flex-grow:${frame.travelMs}" title="${escapeHtml(frame.name)} · travel ${formatDuration(frame.travelMs)}, arrives at ${formatDuration(arrival)} · drag to reorder">
           <span class="clip-label"><b>${index + 1}</b>${escapeHtml(frame.name)}</span>
           <span class="clip-handle" data-handle="travel" title="Drag to retime arrival"></span>
         </span>
@@ -1349,7 +1235,7 @@
     const arrivals = markerTimes();
     const lane = state.frames.length === 0
       ? '<div class="timeline-lane empty-lane">Capture a position to build the timeline</div>'
-      : `<div class="timeline-lane" aria-label="Keyframe timing track">${state.frames.map((frame, index) => clipMarkup(frame, index, arrivals[index].arrival)).join("")}</div>`;
+      : `<div class="timeline-lane" aria-label="Keyframe timing track — drag clips to reorder">${state.frames.map((frame, index) => clipMarkup(frame, index, arrivals[index].arrival)).join("")}</div>`;
     return `
       <div class="timeline-editor">
         <div class="timeline-ruler" aria-label="Scrub sequence timeline"><span class="timeline-progress" style="width:${percent}%"></span></div>
@@ -1358,32 +1244,13 @@
       </div>`;
   }
 
-  function frameMarkup(frame, index) {
-    const selected = selectedId === frame.id ? " selected" : "";
-    const percent = Math.round(frame.progress * 100);
-    return `
-      <div class="compact-frame${selected}" data-frame-id="${frame.id}">
-        <span class="drag-handle" draggable="true" data-action="drag" title="Drag to reorder">${icon("dots")}</span>
-        <span class="frame-index" aria-hidden="true">${index + 1}</span>
-        <div class="compact-name" title="${escapeHtml(frame.name)}">
-          <strong>${escapeHtml(frame.name)}</strong>
-          <small>${formatDuration(frame.travelMs)} travel · ${formatDuration(frame.holdMs)} hold</small>
-        </div>
-        <button class="compact-position" data-action="seek" title="Go to ${percent}%">${percent}%</button>
-        <span class="compact-duration">${formatDuration(frame.travelMs + frame.holdMs)}</span>
-        <button class="icon-button menu-button" data-action="menu" title="Keyframe actions">${icon("more")}</button>
-        ${menuFrameId === frame.id ? `
-          <div class="frame-menu" role="menu">
-            <button data-action="update-frame">${icon("update")} Update position</button>
-            <button data-action="duplicate">${icon("duplicate")} Duplicate</button>
-            <button class="danger" data-action="delete">${icon("trash")} Delete</button>
-          </div>` : ""}
-      </div>`;
-  }
-
   function inspectorMarkup() {
     const frame = state.frames.find((item) => item.id === selectedId);
-    if (!frame) return '<div class="inspector-empty">Select a keyframe to edit its position and timing.</div>';
+    if (!frame) {
+      return state.frames.length === 0
+        ? '<div class="inspector-empty"><strong>No keyframes yet</strong>Scroll to a section, then capture its position.</div>'
+        : '<div class="inspector-empty">Select a clip on the timeline to edit its position and timing.</div>';
+    }
     const index = state.frames.findIndex((item) => item.id === frame.id);
     const percent = Math.round(frame.progress * 1000) / 10;
     return `
@@ -1391,6 +1258,8 @@
         <div class="inspector-header">
           <input class="inspector-name" data-field="name" aria-label="Keyframe name" value="${escapeHtml(frame.name)}">
           <span class="inspector-index">Keyframe ${index + 1}</span>
+          <button class="icon-button" data-action="duplicate" title="Duplicate keyframe">${icon("duplicate")}</button>
+          <button class="icon-button danger-icon" data-action="delete" title="Delete keyframe">${icon("trash")}</button>
         </div>
         <div class="position-heading">
           <span>Position</span>
@@ -1436,7 +1305,7 @@
             <label class="setup-toggle-row">Loop<input type="checkbox" data-field="loop" ${state.loop ? "checked" : ""} hidden><span class="toggle"></span></label>
             <label class="setup-toggle-row">Hide on play<input type="checkbox" data-field="hideWhilePlaying" ${state.hideWhilePlaying ? "checked" : ""} hidden><span class="toggle"></span></label>
           </div>
-          <div class="setup-note">Guides hide automatically during playback.</div>
+          <div class="setup-note">Guides hide automatically during playback. With <strong>Reload first</strong> on, the start delay runs before the reload.</div>
         </div>
       </div>`;
   }
@@ -1453,6 +1322,7 @@
 
   function render() {
     const empty = state.frames.length === 0;
+    const running = isPlaying || isArming;
     shadow.querySelector(".panel")?.remove();
     const panel = document.createElement("section");
     panel.className = `panel${minimized ? " minimized" : ""}${introPlayed ? "" : " intro"}`;
@@ -1474,7 +1344,7 @@
     panel.innerHTML = `
       <header class="header">
         <span class="brand"><span class="brand-mark">${icon("mark")}</span>Scroller</span>
-        <span class="status ${isPlaying ? "playing" : ""}" title="${escapeHtml(status)}">${escapeHtml(status)}</span>
+        <span class="status ${running ? "playing" : ""}" title="${escapeHtml(status)}">${escapeHtml(status)}</span>
         <button class="sequence-button" data-action="sequence-menu" aria-haspopup="menu" aria-expanded="${sequenceMenuOpen}">Sequence ${icon("chevron")}</button>
         ${sequenceMenuOpen ? `<div class="sequence-menu" role="menu">
           <button data-action="request-new">${icon("plus")} New sequence</button>
@@ -1497,18 +1367,19 @@
             </div>
             ${timelineMarkup()}
           </div>
-          <div class="section-label">Keyframes${empty ? "" : `<span class="count">${state.frames.length}</span>`}</div>
-          <div class="compact-frames">${empty ? '<div class="empty"><strong>No keyframes yet</strong>Scroll to a section, then capture its position.</div>' : state.frames.map(frameMarkup).join("")}</div>
-          <div class="compact-add"><button class="add-button" data-action="add">${icon("plus")} Add current position</button></div>
+          <div class="timeline-add"><button class="add-button" data-action="add">${icon("plus")} Add current position</button></div>
           ${inspectorMarkup()}`}
       </div>
       <footer class="footer">
         <div class="footer-meta"><span>${state.frames.length} keyframe${state.frames.length === 1 ? "" : "s"}</span><span class="duration"><strong>${formatDuration(totalDuration())}</strong>total</span></div>
         <div class="controls">
-          <button class="secondary" data-action="play" ${empty ? "disabled" : ""}>${icon(isPlaying ? "stop" : "play")} ${isPlaying ? "Stop" : "Preview"}</button>
-          <button class="primary" data-action="reload-play" ${empty || isPlaying ? "disabled" : ""}>${icon("reload")} Reload &amp; play</button>
+          <label class="reload-toggle" title="Reload the page before the sequence starts, so the recording includes the page-load animation">
+            ${icon("reload")}<span>Reload first</span>
+            <input type="checkbox" data-field="reloadBeforeStart" ${state.reloadBeforeStart ? "checked" : ""} ${running ? "disabled" : ""} hidden><span class="toggle"></span>
+          </label>
+          <button class="primary" data-action="start" ${empty ? "disabled" : ""}>${icon(running ? "stop" : "play")} ${running ? "Stop" : "Start"}</button>
         </div>
-        <div class="shortcut"><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd> capture · <kbd>P</kbd> play · <kbd>Esc</kbd> stop</div>
+        <div class="shortcut"><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd> capture · <kbd>P</kbd> start · <kbd>Esc</kbd> stop</div>
       </footer>
       ${minimized ? "" : ["n", "s", "w", "e", "nw", "ne", "sw", "se"].map((dir) => `<span class="resize-handle ${dir}" data-resize="${dir}" title="Drag to resize panel"></span>`).join("")}`;
     shadow.appendChild(panel);
@@ -1518,7 +1389,6 @@
 
   function selectFrame(id) {
     selectedId = id;
-    menuFrameId = null;
     render();
   }
 
@@ -1573,7 +1443,6 @@
     if (index < 0) return;
     rememberForUndo(`“${state.frames[index].name}” deleted`);
     state.frames.splice(index, 1);
-    menuFrameId = null;
     if (selectedId === id) selectedId = state.frames[0]?.id ?? null;
     status = "Keyframe deleted";
     save();
@@ -1591,7 +1460,6 @@
     };
     state.frames.splice(index + 1, 0, copy);
     selectedId = copy.id;
-    menuFrameId = null;
     status = "Keyframe duplicated";
     save();
     render();
@@ -1639,6 +1507,7 @@
         loop: DEFAULT_STATE.loop,
         countdown: DEFAULT_STATE.countdown,
         hideWhilePlaying: DEFAULT_STATE.hideWhilePlaying,
+        reloadBeforeStart: DEFAULT_STATE.reloadBeforeStart,
         pacingPreset: DEFAULT_STATE.pacingPreset,
         viewportPreset: DEFAULT_STATE.viewportPreset,
         guidePreset: DEFAULT_STATE.guidePreset
@@ -1765,17 +1634,45 @@
     });
   }
 
+  // Single entry point for the footer button, the keyboard shortcut, and the
+  // toolbar command. The post-reload autoplay path must never come through here
+  // or the reload toggle would loop the page forever — it calls play() directly.
+  function start() {
+    if (isPlaying || isArming) {
+      stop();
+      return;
+    }
+    if (state.reloadBeforeStart) reloadAndPlay();
+    else play();
+  }
+
+  // The start delay runs here, before the reload — so the recording captures the
+  // page load itself. Playback after the reload therefore skips its own delay.
   async function reloadAndPlay() {
-    if (state.frames.length === 0 || isPlaying) return;
-    status = "Reloading for recording…";
-    await saveImmediately();
-    render();
-    chrome.runtime.sendMessage({ type: "SCROLLER_RELOAD_AND_PLAY" }, (response) => {
-      if (chrome.runtime.lastError || !response?.ok) {
-        status = "Reload could not start";
+    if (state.frames.length === 0 || isPlaying || isArming) return;
+    const token = ++playbackToken;
+    isArming = true;
+    try {
+      for (let count = state.countdown; count > 0; count -= 1) {
+        status = `Reloading in ${count}…`;
         render();
+        await sleep(1000, token);
+        if (token !== playbackToken) return;
       }
-    });
+      status = "Reloading for recording…";
+      await saveImmediately();
+      if (token !== playbackToken) return;
+      render();
+      chrome.runtime.sendMessage({ type: "SCROLLER_RELOAD_AND_PLAY" }, (response) => {
+        if (chrome.runtime.lastError || !response?.ok) {
+          isArming = false;
+          status = "Reload could not start";
+          render();
+        }
+      });
+    } finally {
+      if (token !== playbackToken) isArming = false;
+    }
   }
 
   const easingFns = {
@@ -1869,13 +1766,14 @@
     });
   }
 
-  async function play({ stealth = false } = {}) {
-    if (isPlaying) {
-      stop();
-      return;
-    }
+  // Starting is not a toggle — start() owns stop/start. A second call while
+  // already playing is a duplicate trigger and must be ignored, not treated as
+  // a stop, or the post-reload autoplay cancels itself.
+  async function play({ stealth = false, skipCountdown = false } = {}) {
+    if (isPlaying) return;
     if (state.frames.length === 0) return;
 
+    isArming = false;
     isPlaying = true;
     if (stealth) root.style.visibility = "hidden";
     const token = ++playbackToken;
@@ -1887,7 +1785,7 @@
     if (body) body.style.scrollBehavior = "auto";
 
     try {
-      for (let count = state.countdown; count > 0; count -= 1) {
+      for (let count = skipCountdown ? 0 : state.countdown; count > 0; count -= 1) {
         status = `Starting in ${count}…`;
         render();
         await sleep(1000, token);
@@ -1922,24 +1820,12 @@
   }
 
   function stop() {
-    if (!isPlaying) return;
+    if (!isPlaying && !isArming) return;
     playbackToken += 1;
     isPlaying = false;
+    isArming = false;
     root.style.visibility = "visible";
     status = "Playback stopped";
-    render();
-  }
-
-  function reorder(sourceId, targetId) {
-    if (!sourceId || sourceId === targetId) return;
-    const sourceIndex = state.frames.findIndex((frame) => frame.id === sourceId);
-    const targetIndex = state.frames.findIndex((frame) => frame.id === targetId);
-    if (sourceIndex < 0 || targetIndex < 0) return;
-    undoAction = null;
-    const [moved] = state.frames.splice(sourceIndex, 1);
-    state.frames.splice(targetIndex, 0, moved);
-    status = "Order updated";
-    save();
     render();
   }
 
@@ -1949,8 +1835,7 @@
       const frameElement = event.target.closest("[data-frame-id]");
       if (frameElement && !actionElement && !event.target.closest("input,select")) selectFrame(frameElement.dataset.frameId);
       if (!actionElement) {
-        if ((menuFrameId && !event.target.closest(".frame-menu")) || sequenceMenuOpen) {
-          menuFrameId = null;
+        if (sequenceMenuOpen) {
           sequenceMenuOpen = false;
           render();
         }
@@ -1962,12 +1847,9 @@
       if (action === "delete") deleteFrame(id);
       if (action === "duplicate") duplicateFrame(id);
       if (action === "undo") undoLastAction();
-      if (action === "menu") { menuFrameId = menuFrameId === id ? null : id; selectedId = id; render(); }
-      if (action === "seek") seek(state.frames.find((frame) => frame.id === id));
       if (action === "seek-selected") seek(state.frames.find((frame) => frame.id === id));
       if (action === "use-current") updateFramePosition(id);
-      if (action === "update-frame") { menuFrameId = null; updateFramePosition(id); }
-      if (action === "sequence-menu") { sequenceMenuOpen = !sequenceMenuOpen; menuFrameId = null; render(); }
+      if (action === "sequence-menu") { sequenceMenuOpen = !sequenceMenuOpen; render(); }
       if (action === "view-frames") { activeView = "frames"; sequenceMenuOpen = false; render(); }
       if (action === "view-setup") { activeView = "setup"; sequenceMenuOpen = false; render(); }
       if (action === "request-clear") { sequenceMenuOpen = false; confirmAction = state.frames.length ? "clear" : null; status = state.frames.length ? status : "No keyframes to clear"; render(); }
@@ -1976,8 +1858,7 @@
       if (action === "cancel-confirm") { confirmAction = null; render(); }
       if (action === "confirm-master") performMasterAction();
       if (action === "set-guide") { undoAction = null; state.guidePreset = actionElement.dataset.value; status = "Guide updated"; save(); render(); }
-      if (action === "play") play();
-      if (action === "reload-play") reloadAndPlay();
+      if (action === "start") start();
       if (action === "resize") resizeViewport();
       if (action === "minimize") { minimized = !minimized; render(); }
       if (action === "hide") root.style.display = "none";
@@ -1986,7 +1867,7 @@
     panel.addEventListener("change", (event) => {
       const field = event.target.dataset.field;
       if (!field) return;
-      if (field === "loop" || field === "hideWhilePlaying") {
+      if (field === "loop" || field === "hideWhilePlaying" || field === "reloadBeforeStart") {
         undoAction = null;
         state[field] = event.target.checked;
         status = "Saved";
@@ -2029,37 +1910,12 @@
       event.target.style.setProperty("--position", `${percent}%`);
       const number = event.target.closest(".inspector")?.querySelector('[data-field="position"]');
       if (number) number.value = percent;
-      const rowPosition = panel.querySelector(`.compact-frame[data-frame-id="${id}"] .compact-position`);
-      if (rowPosition) rowPosition.textContent = `${Math.round(percent)}%`;
       setFrameProgress(id, percent, { live: true });
     });
 
     panel.addEventListener("focusin", (event) => {
       const id = event.target.closest("[data-frame-id]")?.dataset.frameId;
       if (id) selectedId = id;
-    });
-
-    panel.addEventListener("dragstart", (event) => {
-      const handle = event.target.closest('[data-action="drag"]');
-      if (!handle) return;
-      dragId = handle.closest("[data-frame-id]")?.dataset.frameId;
-      handle.closest(".compact-frame")?.classList.add("dragging");
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", dragId);
-    });
-    panel.addEventListener("dragover", (event) => {
-      if (event.target.closest(".compact-frame")) event.preventDefault();
-    });
-    panel.addEventListener("drop", (event) => {
-      const targetId = event.target.closest(".compact-frame")?.dataset.frameId;
-      if (!targetId) return;
-      event.preventDefault();
-      reorder(dragId, targetId);
-      dragId = null;
-    });
-    panel.addEventListener("dragend", () => {
-      dragId = null;
-      panel.querySelectorAll(".dragging").forEach((element) => element.classList.remove("dragging"));
     });
 
     bindPanelDrag(panel);
@@ -2161,6 +2017,73 @@
     ruler.addEventListener("pointercancel", () => { scrubbing = false; });
 
     bindClipHandles(panel);
+    bindClipReorder(panel);
+  }
+
+  // Drag a clip along the lane to change its place in the sequence. The lane is
+  // reordered live in the DOM so the drag reads as direct manipulation; state is
+  // rebuilt from that order on drop.
+  function bindClipReorder(panel) {
+    const lane = panel.querySelector(".timeline-lane");
+    if (!lane) return;
+
+    lane.addEventListener("pointerdown", (event) => {
+      if (isPlaying || event.button !== 0) return;
+      if (event.target.closest(".clip-handle")) return; // retiming owns the handles
+      const clip = event.target.closest(".clip");
+      if (!clip || state.frames.length < 2) return;
+      const frameId = clip.dataset.frameId;
+      if (!state.frames.some((frame) => frame.id === frameId)) return;
+
+      const startX = event.clientX;
+      const clips = () => [...lane.querySelectorAll(".clip")];
+      let dragging = false;
+      clip.setPointerCapture(event.pointerId);
+
+      const relabel = () => {
+        clips().forEach((element, index) => {
+          const number = element.querySelector(".clip-label b");
+          if (number) number.textContent = index + 1;
+        });
+      };
+
+      const apply = (moveEvent) => {
+        if (!dragging) {
+          // Tolerance so a plain click still selects rather than reorders.
+          if (Math.abs(moveEvent.clientX - startX) < 4) return;
+          dragging = true;
+          lane.classList.add("reordering");
+          clip.classList.add("dragging");
+          selectedId = frameId;
+          clips().forEach((element) => element.classList.toggle("selected", element === clip));
+        }
+        const siblings = clips().filter((element) => element !== clip);
+        let target = 0;
+        for (const sibling of siblings) {
+          const rect = sibling.getBoundingClientRect();
+          if (moveEvent.clientX > rect.left + rect.width / 2) target += 1;
+        }
+        if (target === clips().indexOf(clip)) return;
+        lane.insertBefore(clip, siblings[target] ?? null);
+        relabel();
+      };
+
+      const finish = () => {
+        clip.removeEventListener("pointermove", apply);
+        if (!dragging) return;
+        const order = clips().map((element) => element.dataset.frameId);
+        undoAction = null;
+        state.frames.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+        timelineTimeMs = 0;
+        status = "Order updated";
+        save();
+        render();
+      };
+
+      clip.addEventListener("pointermove", apply);
+      clip.addEventListener("pointerup", finish, { once: true });
+      clip.addEventListener("pointercancel", finish, { once: true });
+    });
   }
 
   function bindClipHandles(panel) {
@@ -2181,9 +2104,6 @@
       const travelElement = clip.querySelector(".clip-travel");
       const holdElement = clip.querySelector(".clip-hold");
       const readout = panel.querySelector(".timeline-time");
-      const row = panel.querySelector(`.compact-frame[data-frame-id="${frame.id}"]`);
-      const rowMeta = row?.querySelector(".compact-name small");
-      const rowDuration = row?.querySelector(".compact-duration");
       const inspectorField = panel.querySelector(`.inspector[data-frame-id="${frame.id}"] [data-field="${kind}"]`);
 
       // Fix the pixel-to-time scale at drag start so the value tracks the cursor
@@ -2208,8 +2128,6 @@
         holdElement.style.flexGrow = frame.holdMs;
         clip.style.flexGrow = Math.max(1, frame.travelMs + frame.holdMs);
         if (readout) readout.textContent = `${label} ${formatDuration(value)}`;
-        if (rowMeta) rowMeta.textContent = `${formatDuration(frame.travelMs)} travel · ${formatDuration(frame.holdMs)} hold`;
-        if (rowDuration) rowDuration.textContent = formatDuration(frame.travelMs + frame.holdMs);
         if (inspectorField) inspectorField.value = value / 1000;
       };
 
@@ -2257,7 +2175,7 @@
   }
 
   function toggle() {
-    if (isPlaying) {
+    if (isPlaying || isArming) {
       stop();
       root.style.display = "block";
       root.style.visibility = "visible";
@@ -2280,25 +2198,28 @@
     if (command === "add-keyframe") addFrame();
     if (command === "play-sequence") {
       root.style.display = "block";
-      play();
+      start();
     }
-    if (command === "reload-play") play({ stealth: true });
+    // Sent by the background script after it has already reloaded the tab. It
+    // arrives twice — once via the injected autoplay attribute and once as a
+    // message — so only the first one may act.
+    if (command === "reload-play") {
+      if (autoplayHandled) return;
+      autoplayHandled = true;
+      play({ stealth: true, skipCountdown: true });
+    }
   }
 
   function onKeydown(event) {
-    if (event.key === "Escape" && isPlaying) {
+    if (event.key === "Escape" && (isPlaying || isArming)) {
       event.preventDefault();
       stop();
       return;
     }
-    if (event.key === "Escape" && menuFrameId) {
-      menuFrameId = null;
-      render();
-    }
     if (event.altKey && event.shiftKey && event.code === "KeyP") {
       event.preventDefault();
       root.style.display = "block";
-      play();
+      start();
     }
     if (event.altKey && event.shiftKey && event.code === "KeyK") {
       event.preventDefault();

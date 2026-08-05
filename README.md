@@ -14,7 +14,7 @@ Scroller is a lightweight Chrome extension that captures scroll positions as key
 - Scrub the timeline to preview intermediate positions.
 - Resize the browser to common desktop, laptop, tablet, and mobile viewports.
 - Compose for 16:9, 4:5, 9:16, or 1:1 with optional safe-area guides.
-- Reload the current page and automatically resume playback for cleaner recordings.
+- Optionally reload the page before a sequence starts, so recordings include the page load animation.
 - Move and resize the in-page control panel; layouts are remembered per page.
 - Keep every sequence on your device. Scroller has no account, analytics, or server.
 
@@ -39,10 +39,10 @@ Chrome does not allow extensions to run on protected pages such as `chrome://ext
 1. In **Setup**, choose a viewport and select **Resize**. Optionally enable a safe crop guide.
 2. Scroll to the first section and select **Add current position**. Repeat for the remaining sections.
 3. Apply a pacing preset or edit each frame on the timeline and in the inspector.
-4. Drag frames by their handles to reorder them. Use the `•••` menu to update, duplicate, or delete a frame.
+4. Drag a clip along the timeline to reorder it. Duplicate or delete the selected keyframe from the inspector header.
 5. Scrub the timeline ruler to preview the motion.
-6. Start your screen recorder, then select **Reload & play** to include the page load animation without showing Scroller.
-7. Use **Preview** when a reload is unnecessary. Press `Esc` to stop playback.
+6. Start your screen recorder, then select **Start**. Press `Esc` to stop playback.
+7. Enable **Reload first** next to **Start** to reload the page before the sequence runs, so the recording includes the page load animation without showing Scroller. The start delay counts down before the reload, and playback begins as soon as the page is ready. The choice is saved with the page's timeline.
 
 ## Timeline editing
 
@@ -52,6 +52,7 @@ Each keyframe is a clip with two parts: a solid **travel** block and a hatched *
 - Drag the right edge of the hold block to change the pause.
 - Hold `Shift` while dragging for 10 ms precision instead of 50 ms steps.
 - Select any clip to open its keyframe inspector.
+- Drag a clip sideways to move it earlier or later in the sequence.
 - Drag the ruler above the clips to scrub the page.
 
 Timing values are clamped between 0 and 60 seconds. The inspector fields remain available when exact values are easier.
@@ -72,7 +73,7 @@ The extension requests only the permissions needed for its visible features:
 
 - `activeTab`: work on the page only after you select Scroller or use its shortcut.
 - `scripting`: inject the in-page keyframe editor into that active tab.
-- `storage`: save timelines locally and carry a short-lived flag across **Reload & play**.
+- `storage`: save timelines locally and carry a short-lived flag across a **Reload first** start.
 
 Scroller does not request access to every website and does not run persistently on pages.
 
